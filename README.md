@@ -1,12 +1,8 @@
 # Multimodal VLM Thinking
 
-> A comprehensive Gradio application that provides access to multiple state-of-the-art Vision-Language Models (VLMs) for both image and video understanding tasks. This application offers a unified interface to interact with various specialized models for OCR, document analysis, visual reasoning, and multimodal understanding.
+https://github.com/user-attachments/assets/22d47580-3cc0-44cb-9f95-c74608beff19
 
----
-
-![Screenshot 2025-08-14 at 10-34-38 Multimodal VLM Thinking - a Hugging Face Space by prithivMLmods.png](https://cdn-uploads.huggingface.co/production/uploads/65bb837dbfb878f46c77de4c/WSEtegKqqKM3aaCBXIi3n.png)
-
----
+A comprehensive Gradio application that provides access to multiple state-of-the-art Vision-Language Models (VLMs) for both image and video understanding tasks. This application offers a unified interface to interact with various specialized models for OCR, document analysis, visual reasoning, and multimodal understanding.
 
 ## Features
 
