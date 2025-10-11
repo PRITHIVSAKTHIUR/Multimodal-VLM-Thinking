@@ -280,12 +280,12 @@ with gr.Blocks(css=css, theme="bethecloud/storj_theme") as demo:
             with gr.Tabs():
                 with gr.TabItem("Image Inference"):
                     image_query = gr.Textbox(label="Query Input", placeholder="Enter your query here...")
-                    image_upload = gr.Image(type="pil", label="Image")
+                    image_upload = gr.Image(type="pil", label="Image", height=290)
                     image_submit = gr.Button("Submit", elem_classes="submit-btn")
                     gr.Examples(examples=image_examples, inputs=[image_query, image_upload])
                 with gr.TabItem("Video Inference"):
                     video_query = gr.Textbox(label="Query Input", placeholder="Enter your query here...")
-                    video_upload = gr.Video(label="Video")
+                    video_upload = gr.Video(label="Video", height=290)
                     video_submit = gr.Button("Submit", elem_classes="submit-btn")
                     gr.Examples(examples=video_examples, inputs=[video_query, video_upload])
 
@@ -299,7 +299,7 @@ with gr.Blocks(css=css, theme="bethecloud/storj_theme") as demo:
         with gr.Column():
             with gr.Column(elem_classes="canvas-output"):
                 gr.Markdown("## Output")
-                output = gr.Textbox(label="Raw Output Stream", interactive=False, lines=3, show_copy_button=True)
+                output = gr.Textbox(label="Raw Output Stream", interactive=False, lines=5, show_copy_button=True)
                 with gr.Accordion("(Result.md)", open=False):
                     markdown_output = gr.Markdown(label="(Result.Md)")
             model_choice = gr.Radio(
@@ -325,4 +325,4 @@ with gr.Blocks(css=css, theme="bethecloud/storj_theme") as demo:
     )
 
 if __name__ == "__main__":
-    demo.queue(max_size=50).launch(share=True, ssr_mode=False, show_error=True)
+    demo.queue(max_size=50).launch(share=True, mcp_server=True, ssr_mode=False, show_error=True)
