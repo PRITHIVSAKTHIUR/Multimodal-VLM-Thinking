@@ -27,34 +27,30 @@ from transformers.image_utils import load_image
 from gradio.themes import Soft
 from gradio.themes.utils import colors, fonts, sizes
 
-colors.light_salmon = colors.Color(
-    name="light_salmon",
-    c50="#FFF9F2",
-    c100="#FFEC C6",
-    c200="#FFD9B3",
-    c300="#FFC6A0",
-    c400="#FFB38D",
-    c500="#FFA07A",
-    c600="#E6906E",
-    c700="#CC8062",
-    c800="#B37056",
-    c900="#99604A",
-    c950="#80503E",
+# --- Theme and CSS Definition ---
+
+# Define the new SteelBlue color palette
+colors.steel_blue = colors.Color(
+    name="steel_blue",
+    c50="#EBF3F8",
+    c100="#D3E5F0",
+    c200="#A8CCE1",
+    c300="#7DB3D2",
+    c400="#529AC3",
+    c500="#4682B4",  # SteelBlue base color
+    c600="#3E72A0",
+    c700="#36638C",
+    c800="#2E5378",
+    c900="#264364",
+    c950="#1E3450",
 )
 
-colors.red_gray = colors.Color(
-    name="red_gray",
-    c50="#f7eded", c100="#f5dcdc", c200="#efb4b4", c300="#e78f8f",
-    c400="#d96a6a", c500="#c65353", c600="#b24444", c700="#8f3434",
-    c800="#732d2d", c900="#5f2626", c950="#4d2020",
-)
-
-class LightSalmonTheme(Soft):
+class SteelBlueTheme(Soft):
     def __init__(
         self,
         *,
         primary_hue: colors.Color | str = colors.gray,
-        secondary_hue: colors.Color | str = colors.light_salmon, # Use the new color
+        secondary_hue: colors.Color | str = colors.steel_blue, # Use the new color
         neutral_hue: colors.Color | str = colors.slate,
         text_size: sizes.Size | str = sizes.text_lg,
         font: fonts.Font | str | Iterable[fonts.Font | str] = (
@@ -77,27 +73,19 @@ class LightSalmonTheme(Soft):
             background_fill_primary_dark="*primary_900",
             body_background_fill="linear-gradient(135deg, *primary_200, *primary_100)",
             body_background_fill_dark="linear-gradient(135deg, *primary_900, *primary_800)",
-            button_primary_text_color="black",
+            button_primary_text_color="white",
             button_primary_text_color_hover="white",
-            button_primary_background_fill="linear-gradient(90deg, *secondary_400, *secondary_400)",
-            button_primary_background_fill_hover="linear-gradient(90deg, *secondary_600, *secondary_600)",
-            button_primary_background_fill_dark="linear-gradient(90deg, *secondary_600, *secondary_800)",
-            button_primary_background_fill_hover_dark="linear-gradient(90deg, *secondary_500, *secondary_500)",
+            button_primary_background_fill="linear-gradient(90deg, *secondary_500, *secondary_600)",
+            button_primary_background_fill_hover="linear-gradient(90deg, *secondary_600, *secondary_700)",
+            button_primary_background_fill_dark="linear-gradient(90deg, *secondary_600, *secondary_700)",
+            button_primary_background_fill_hover_dark="linear-gradient(90deg, *secondary_500, *secondary_600)",
             button_secondary_text_color="black",
             button_secondary_text_color_hover="white",
             button_secondary_background_fill="linear-gradient(90deg, *primary_300, *primary_300)",
             button_secondary_background_fill_hover="linear-gradient(90deg, *primary_400, *primary_400)",
             button_secondary_background_fill_dark="linear-gradient(90deg, *primary_500, *primary_600)",
             button_secondary_background_fill_hover_dark="linear-gradient(90deg, *primary_500, *primary_500)",
-            button_cancel_background_fill=f"linear-gradient(90deg, {colors.red_gray.c400}, {colors.red_gray.c500})",
-            button_cancel_background_fill_dark=f"linear-gradient(90deg, {colors.red_gray.c700}, {colors.red_gray.c800})",
-            button_cancel_background_fill_hover=f"linear-gradient(90deg, {colors.red_gray.c500}, {colors.red_gray.c600})",
-            button_cancel_background_fill_hover_dark=f"linear-gradient(90deg, {colors.red_gray.c800}, {colors.red_gray.c900})",
-            button_cancel_text_color="white",
-            button_cancel_text_color_dark="white",
-            button_cancel_text_color_hover="white",
-            button_cancel_text_color_hover_dark="white",
-            slider_color="*secondary_300",
+            slider_color="*secondary_500",
             slider_color_dark="*secondary_600",
             block_title_text_weight="600",
             block_border_width="3px",
@@ -108,7 +96,8 @@ class LightSalmonTheme(Soft):
             block_label_background_fill="*primary_200",
         )
 
-light_salmon_theme = LightSalmonTheme()
+# Instantiate the new theme
+steel_blue_theme = SteelBlueTheme()
 
 css = """
 #main-title h1 {
@@ -120,7 +109,7 @@ css = """
 """
 
 MAX_MAX_NEW_TOKENS = 4096
-DEFAULT_MAX_NEW_TOKENS = 2048
+DEFAULT_MAX_NEW_TOKENS = 1024
 MAX_INPUT_TOKEN_LENGTH = int(os.getenv("MAX_INPUT_TOKEN_LENGTH", "4096"))
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -234,9 +223,7 @@ def generate_image(model_name: str, text: str, image: Image.Image,
     messages = [{"role": "user", "content": [{"type": "image"}, {"type": "text", "text": text}]}]
     prompt_full = processor.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
     inputs = processor(
-        text=[prompt_full], images=[image], return_tensors="pt", padding=True,
-        truncation=True, max_length=MAX_INPUT_TOKEN_LENGTH
-    ).to(device)
+        text=[prompt_full], images=[image], return_tensors="pt", padding=True).to(device)
     streamer = TextIteratorStreamer(processor, skip_prompt=True, skip_special_tokens=True)
     generation_kwargs = {**inputs, "streamer": streamer, "max_new_tokens": max_new_tokens}
     thread = Thread(target=model.generate, kwargs=generation_kwargs)
@@ -291,9 +278,7 @@ def generate_video(model_name: str, text: str, video_path: str,
 
     prompt_full = processor.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
     inputs = processor(
-        text=[prompt_full], images=images_for_processor, return_tensors="pt", padding=True,
-        truncation=True, max_length=MAX_INPUT_TOKEN_LENGTH
-    ).to(device)
+        text=[prompt_full], images=images_for_processor, return_tensors="pt", padding=True).to(device)
     streamer = TextIteratorStreamer(processor, skip_prompt=True, skip_special_tokens=True)
     generation_kwargs = {
         **inputs, "streamer": streamer, "max_new_tokens": max_new_tokens,
@@ -324,7 +309,7 @@ video_examples = [
     ["Explain the ad in detail.", "videos/1.mp4"]
 ]
 
-with gr.Blocks(theme=light_salmon_theme, css=css) as demo:
+with gr.Blocks(theme=steel_blue_theme, css=css) as demo:
     gr.Markdown("# **Multimodal VLM Thinking**", elem_id="main-title")
     with gr.Row():
         with gr.Column(scale=2):
@@ -351,10 +336,7 @@ with gr.Blocks(theme=light_salmon_theme, css=css) as demo:
             gr.Markdown("## Output", elem_id="output-title")
             output = gr.Textbox(label="Raw Output Stream", interactive=False, lines=11, show_copy_button=True)
             with gr.Accordion("(Result.md)", open=False):
-                markdown_output = gr.Markdown(label="(Result.Md)", latex_delimiters=[
-                                {"left": "$$", "right": "$$", "display": True},
-                                {"left": "$", "right": "$", "display": False}
-                            ])
+                markdown_output = gr.Markdown(label="(Result.Md)")
 
             model_choice = gr.Radio(
                 choices=["Lumian-VLR-7B-Thinking", "VisionThink-Efficient", "openbmb/MiniCPM-V-4", "Typhoon-OCR-3B", "olmOCR-7B-0225-preview"],
