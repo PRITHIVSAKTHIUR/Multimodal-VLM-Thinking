@@ -54,14 +54,28 @@ note: remove kernels and flash_attn3 implementation if you are using it on *non-
 ### Prerequisites
 
 ```bash
-pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
-pip install transformers
-pip install gradio
-pip install spaces
-pip install opencv-python
-pip install pillow
-pip install numpy
-pip install requests
+git+https://github.com/huggingface/transformers.git@v4.57.6
+git+https://github.com/huggingface/accelerate.git
+git+https://github.com/huggingface/peft.git
+transformers-stream-generator
+huggingface_hub
+qwen-vl-utils
+sentencepiece
+opencv-python
+torch==2.8.0
+torchvision
+matplotlib
+pdf2image
+requests
+pymupdf
+kernels
+hf_xet
+spaces
+pillow
+gradio # - gradio@6.3.0
+fpdf
+timm
+av
 ```
 
 ### Clone Repository
