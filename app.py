@@ -27,9 +27,6 @@ from transformers.image_utils import load_image
 from gradio.themes import Soft
 from gradio.themes.utils import colors, fonts, sizes
 
-# --- Theme and CSS Definition ---
-
-# Define the new SteelBlue color palette
 colors.steel_blue = colors.Color(
     name="steel_blue",
     c50="#EBF3F8",
@@ -37,7 +34,7 @@ colors.steel_blue = colors.Color(
     c200="#A8CCE1",
     c300="#7DB3D2",
     c400="#529AC3",
-    c500="#4682B4",  # SteelBlue base color
+    c500="#4682B4",
     c600="#3E72A0",
     c700="#36638C",
     c800="#2E5378",
@@ -50,7 +47,7 @@ class SteelBlueTheme(Soft):
         self,
         *,
         primary_hue: colors.Color | str = colors.gray,
-        secondary_hue: colors.Color | str = colors.steel_blue, # Use the new color
+        secondary_hue: colors.Color | str = colors.steel_blue,
         neutral_hue: colors.Color | str = colors.slate,
         text_size: sizes.Size | str = sizes.text_lg,
         font: fonts.Font | str | Iterable[fonts.Font | str] = (
@@ -96,7 +93,6 @@ class SteelBlueTheme(Soft):
             block_label_background_fill="*primary_200",
         )
 
-# Instantiate the new theme
 steel_blue_theme = SteelBlueTheme()
 
 css = """
@@ -105,6 +101,40 @@ css = """
 }
 #output-title h2 {
     font-size: 2.1em !important;
+}
+
+/* RadioAnimated Styles */
+.ra-wrap{ width: fit-content; }
+.ra-inner{
+  position: relative; display: inline-flex; align-items: center; gap: 0; padding: 6px;
+  background: var(--neutral-200); border-radius: 9999px; overflow: hidden;
+}
+.ra-input{ display: none; }
+.ra-label{
+  position: relative; z-index: 2; padding: 8px 16px;
+  font-family: inherit; font-size: 14px; font-weight: 600;
+  color: var(--neutral-500); cursor: pointer; transition: color 0.2s; white-space: nowrap;
+}
+.ra-highlight{
+  position: absolute; z-index: 1; top: 6px; left: 6px;
+  height: calc(100% - 12px); border-radius: 9999px;
+  background: white; box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  transition: transform 0.2s, width 0.2s;
+}
+.ra-input:checked + .ra-label{ color: black; }
+
+/* Dark mode adjustments for Radio */
+.dark .ra-inner { background: var(--neutral-800); }
+.dark .ra-label { color: var(--neutral-400); }
+.dark .ra-highlight { background: var(--neutral-600); }
+.dark .ra-input:checked + .ra-label { color: white; }
+
+#gpu-duration-container {
+    padding: 10px;
+    border-radius: 8px;
+    background: var(--background-fill-secondary);
+    border: 1px solid var(--border-color-primary);
+    margin-top: 10px;
 }
 """
 
@@ -125,10 +155,86 @@ if torch.cuda.is_available():
 
 print("Using device:", device)
 
+# --- RadioAnimated Component ---
+class RadioAnimated(gr.HTML):
+    def __init__(self, choices, value=None, **kwargs):
+        if not choices or len(choices) < 2:
+            raise ValueError("RadioAnimated requires at least 2 choices.")
+        if value is None:
+            value = choices[0]
+
+        uid = uuid.uuid4().hex[:8]
+        group_name = f"ra-{uid}"
+
+        inputs_html = "\n".join(
+            f"""
+            <input class="ra-input" type="radio" name="{group_name}" id="{group_name}-{i}" value="{c}">
+            <label class="ra-label" for="{group_name}-{i}">{c}</label>
+            """
+            for i, c in enumerate(choices)
+        )
+
+        html_template = f"""
+        <div class="ra-wrap" data-ra="{uid}">
+          <div class="ra-inner">
+            <div class="ra-highlight"></div>
+            {inputs_html}
+          </div>
+        </div>
+        """
+
+        js_on_load = r"""
+        (() => {
+          const wrap = element.querySelector('.ra-wrap');
+          const inner = element.querySelector('.ra-inner');
+          const highlight = element.querySelector('.ra-highlight');
+          const inputs = Array.from(element.querySelectorAll('.ra-input'));
+
+          if (!inputs.length) return;
+
+          const choices = inputs.map(i => i.value);
+
+          function setHighlightByIndex(idx) {
+            const n = choices.length;
+            const pct = 100 / n;
+            highlight.style.width = `calc(${pct}% - 6px)`;
+            highlight.style.transform = `translateX(${idx * 100}%)`;
+          }
+
+          function setCheckedByValue(val, shouldTrigger=false) {
+            const idx = Math.max(0, choices.indexOf(val));
+            inputs.forEach((inp, i) => { inp.checked = (i === idx); });
+            setHighlightByIndex(idx);
+
+            props.value = choices[idx];
+            if (shouldTrigger) trigger('change', props.value);
+          }
+
+          setCheckedByValue(props.value ?? choices[0], false);
+
+          inputs.forEach((inp) => {
+            inp.addEventListener('change', () => {
+              setCheckedByValue(inp.value, true);
+            });
+          });
+        })();
+        """
+
+        super().__init__(
+            value=value,
+            html_template=html_template,
+            js_on_load=js_on_load,
+            **kwargs
+        )
+
+def apply_gpu_duration(val: str):
+    return int(val)
+
 MODEL_ID_X = "Senqiao/VisionThink-Efficient"
 processor_x = AutoProcessor.from_pretrained(MODEL_ID_X, trust_remote_code=True, use_fast=False)
 model_x = Qwen2_5_VLForConditionalGeneration.from_pretrained(
     MODEL_ID_X,
+    attn_implementation="kernels-community/flash-attn2",
     trust_remote_code=True,
     torch_dtype=torch.float16
 ).to(device).eval()
@@ -137,6 +243,7 @@ MODEL_ID_T = "scb10x/typhoon-ocr-3b"
 processor_t = AutoProcessor.from_pretrained(MODEL_ID_T, trust_remote_code=True, use_fast=False)
 model_t = Qwen2_5_VLForConditionalGeneration.from_pretrained(
     MODEL_ID_T,
+    attn_implementation="kernels-community/flash-attn2",
     trust_remote_code=True,
     torch_dtype=torch.float16
 ).to(device).eval()
@@ -145,6 +252,7 @@ MODEL_ID_O = "allenai/olmOCR-7B-0225-preview"
 processor_o = AutoProcessor.from_pretrained(MODEL_ID_O, trust_remote_code=True, use_fast=False)
 model_o = Qwen2VLForConditionalGeneration.from_pretrained(
     MODEL_ID_O,
+    attn_implementation="kernels-community/flash-attn2",
     trust_remote_code=True,
     torch_dtype=torch.float16
 ).to(device).eval()
@@ -154,6 +262,7 @@ SUBFOLDER = "think-preview"
 processor_j = AutoProcessor.from_pretrained(MODEL_ID_J, trust_remote_code=True, subfolder=SUBFOLDER, use_fast=False)
 model_j = Qwen2_5_VLForConditionalGeneration.from_pretrained(
     MODEL_ID_J,
+    attn_implementation="kernels-community/flash-attn2",
     trust_remote_code=True,
     subfolder=SUBFOLDER,
     torch_dtype=torch.float16
@@ -162,6 +271,7 @@ model_j = Qwen2_5_VLForConditionalGeneration.from_pretrained(
 MODEL_ID_V4 = 'openbmb/MiniCPM-V-4'
 model_v4 = AutoModel.from_pretrained(
     MODEL_ID_V4,
+    attn_implementation="kernels-community/flash-attn2",
     trust_remote_code=True,
     torch_dtype=torch.bfloat16,
 ).eval().to(device)
@@ -191,13 +301,33 @@ def downsample_video(video_path):
     vidcap.release()
     return frames
 
-@spaces.GPU
+# --- GPU Timeout Calculation Functions ---
+def calc_timeout_image(model_name: str, text: str, image: Image.Image,
+                       max_new_tokens: int, temperature: float, top_p: float,
+                       top_k: int, repetition_penalty: float, gpu_timeout: int):
+    """Calculate GPU timeout duration for image inference."""
+    try:
+        return int(gpu_timeout)
+    except:
+        return 60
+
+def calc_timeout_video(model_name: str, text: str, video_path: str,
+                       max_new_tokens: int, temperature: float, top_p: float,
+                       top_k: int, repetition_penalty: float, gpu_timeout: int):
+    """Calculate GPU timeout duration for video inference."""
+    try:
+        return int(gpu_timeout)
+    except:
+        return 60
+
+@spaces.GPU(duration=calc_timeout_image)
 def generate_image(model_name: str, text: str, image: Image.Image,
                    max_new_tokens: int = 1024,
                    temperature: float = 0.6,
                    top_p: float = 0.9,
                    top_k: int = 50,
-                   repetition_penalty: float = 1.2):
+                   repetition_penalty: float = 1.2,
+                   gpu_timeout: int = 60):
     if image is None:
         yield "Please upload an image.", "Please upload an image."
         return
@@ -234,13 +364,14 @@ def generate_image(model_name: str, text: str, image: Image.Image,
         time.sleep(0.01)
         yield buffer, buffer
 
-@spaces.GPU
+@spaces.GPU(duration=calc_timeout_video)
 def generate_video(model_name: str, text: str, video_path: str,
                    max_new_tokens: int = 1024,
                    temperature: float = 0.6,
                    top_p: float = 0.9,
                    top_k: int = 50,
-                   repetition_penalty: float = 1.2):
+                   repetition_penalty: float = 1.2,
+                   gpu_timeout: int = 90):
     if video_path is None:
         yield "Please upload a video.", "Please upload a video."
         return
@@ -294,7 +425,6 @@ def generate_video(model_name: str, text: str, video_path: str,
         time.sleep(0.01)
         yield buffer, buffer
         
-# Define examples for image and video inference
 image_examples = [
     ["Describe the safety measures in the image. Conclude (Safe / Unsafe)..", "images/5.jpg"],
     ["Convert this page to doc [markdown] precisely.", "images/3.png"],
@@ -309,7 +439,7 @@ video_examples = [
     ["Explain the ad in detail.", "videos/1.mp4"]
 ]
 
-with gr.Blocks(theme=steel_blue_theme, css=css) as demo:
+with gr.Blocks() as demo:
     gr.Markdown("# **Multimodal VLM Thinking**", elem_id="main-title")
     with gr.Row():
         with gr.Column(scale=2):
@@ -334,7 +464,7 @@ with gr.Blocks(theme=steel_blue_theme, css=css) as demo:
 
         with gr.Column(scale=3):
             gr.Markdown("## Output", elem_id="output-title")
-            output = gr.Textbox(label="Raw Output Stream", interactive=False, lines=11, show_copy_button=True)
+            output = gr.Textbox(label="Raw Output Stream", lines=11, interactive=True)
             with gr.Accordion("(Result.md)", open=False):
                 markdown_output = gr.Markdown(label="(Result.Md)")
 
@@ -344,16 +474,35 @@ with gr.Blocks(theme=steel_blue_theme, css=css) as demo:
                 value="Lumian-VLR-7B-Thinking"
             )
             
+            with gr.Row(elem_id="gpu-duration-container"):
+                with gr.Column():
+                    gr.Markdown("**GPU Duration (seconds)**")
+                    radioanimated_gpu_duration = RadioAnimated(
+                        choices=["60", "90", "120", "180", "240", "300"],
+                        value="60",
+                        elem_id="radioanimated_gpu_duration"
+                    )
+                    gpu_duration_state = gr.Number(value=60, visible=False)
+            
+            gr.Markdown("*Note: Higher GPU duration allows for longer processing but consumes more GPU quota.*")
+            
+    radioanimated_gpu_duration.change(
+        fn=apply_gpu_duration,
+        inputs=radioanimated_gpu_duration,
+        outputs=[gpu_duration_state],
+        api_visibility="private"
+    )
+
     image_submit.click(
         fn=generate_image,
-        inputs=[model_choice, image_query, image_upload, max_new_tokens, temperature, top_p, top_k, repetition_penalty],
+        inputs=[model_choice, image_query, image_upload, max_new_tokens, temperature, top_p, top_k, repetition_penalty, gpu_duration_state],
         outputs=[output, markdown_output]
     )
     video_submit.click(
         fn=generate_video,
-        inputs=[model_choice, video_query, video_upload, max_new_tokens, temperature, top_p, top_k, repetition_penalty],
+        inputs=[model_choice, video_query, video_upload, max_new_tokens, temperature, top_p, top_k, repetition_penalty, gpu_duration_state],
         outputs=[output, markdown_output]
     )
 
 if __name__ == "__main__":
-    demo.queue(max_size=50).launch(mcp_server=True, ssr_mode=False, show_error=True)
+    demo.queue(max_size=50).launch(theme=steel_blue_theme, css=css, mcp_server=True, ssr_mode=False, show_error=True)
