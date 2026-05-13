@@ -62,7 +62,7 @@ huggingface_hub
 qwen-vl-utils
 sentencepiece
 opencv-python
-torch==2.8.0
+torch==2.11.0
 torchvision
 matplotlib
 pdf2image
@@ -72,7 +72,7 @@ kernels
 hf_xet
 spaces
 pillow
-gradio # - gradio@6.3.0
+gradio
 fpdf
 timm
 av
